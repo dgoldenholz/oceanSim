@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="An interactive beach sound-positioning simulator with physical stereo timing."
+    />
+    <title>Shoreline — Spatial Sound Lab</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='32' fill='%23183430'/%3E%3Cpath d='M12 37c8-9 13-9 21 0s13 9 20 0M12 25c8-9 13-9 21 0s13 9 20 0' fill='none' stroke='%23fff9e9' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="app-header">
+        <a class="brand" href="#" aria-label="Shoreline home">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 40 40" role="img">
+              <path d="M5 24c5-6 9-6 14 0s9 6 16 0" />
+              <path d="M5 16c5-6 9-6 14 0s9 6 16 0" />
+            </svg>
+          </span>
+          <span>
+            <strong>Shoreline</strong>
+            <small>Spatial sound lab</small>
+          </span>
+        </a>
+        <nav class="page-tabs" aria-label="Simulator pages">
+          <button class="page-tab active" type="button" data-page="sources" aria-selected="true">
+            Sound sources
+          </button>
+          <button class="page-tab" type="button" data-page="waves" aria-selected="false">
+            Moving waves
+          </button>
+        </nav>
+        <div class="model-facts" aria-label="Acoustic model constants">
+          <span><b>343</b> m/s sound speed</span>
+          <span><b>17.5</b> cm ear span</span>
+          <span><b>36 × 22.5</b> m scene</span>
+        </div>
+      </header>
+
+      <main id="sources-page" class="workspace page-view">
+        <aside class="source-panel" aria-label="Sound source palette">
+          <div class="panel-heading">
+            <span class="eyebrow">Source palette</span>
+            <h1>Place a sound</h1>
+            <p>Drag a source into the scene. Click one to add it nearby.</p>
+          </div>
+
+          <div class="source-tools">
+            <button class="source-tool" type="button" data-source-type="bird">
+              <span class="tool-icon bird-icon" aria-hidden="true">
+                <svg viewBox="0 0 64 64">
+                  <path d="M7 37c10-2 17-7 23-16 1 8 5 13 12 16 5 2 10 2 15 0-7 8-16 12-27 8-8-3-15-6-23-8Z" />
+                  <path d="m43 36 8-7-2 10" />
+                </svg>
+              </span>
+              <span class="tool-copy">
+                <strong>Seagull</strong>
+                <small>2 sec recording</small>
+              </span>
+              <span class="drag-grip" aria-hidden="true">⠿</span>
+            </button>
+
+            <button class="source-tool" type="button" data-source-type="gaussian">
+              <span class="tool-icon gaussian-icon" aria-hidden="true">
+                <svg viewBox="0 0 64 64">
+                  <path class="axis" d="M7 50h50" />
+                  <path class="curve" d="M8 49c12 0 14-3 18-21 1-6 3-10 6-10s5 4 6 10c4 18 6 21 18 21" />
+                </svg>
+              </span>
+              <span class="tool-copy">
+                <strong>Gaussian noise</strong>
+                <small>2 sec swell</small>
+              </span>
+              <span class="drag-grip" aria-hidden="true">⠿</span>
+            </button>
+
+            <button class="source-tool" type="button" data-source-type="wave">
+              <span class="tool-icon wave-icon" aria-hidden="true">
+                <svg viewBox="0 0 64 64">
+                  <path d="M7 27c7-7 13-7 20 0s13 7 20 0" />
+                  <path d="M15 39c6-5 11-5 17 0s11 5 17 0" />
+                </svg>
+              </span>
+              <span class="tool-copy">
+                <strong>Wave</strong>
+                <small>Full-life surf</small>
+              </span>
+              <span class="drag-grip" aria-hidden="true">⠿</span>
+            </button>
+          </div>
+
+          <div class="panel-divider"></div>
+
+          <section class="controls-guide" aria-labelledby="controls-title">
+            <span class="eyebrow">Listener controls</span>
+            <h2 id="controls-title">Move on the sand</h2>
+            <div class="key-guide">
+              <div class="key-row">
+                <kbd>W</kbd>
+                <kbd>↑</kbd>
+                <span>Move forward</span>
+              </div>
+              <div class="key-row">
+                <kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>
+                <span>Move around</span>
+              </div>
+              <div class="key-row">
+                <kbd>Q</kbd><kbd>E</kbd>
+                <span>Rotate 15°</span>
+              </div>
+              <div class="key-row">
+                <kbd>⌫</kbd>
+                <span>Remove selected</span>
+              </div>
+            </div>
+          </section>
+
+          <div class="panel-tip">
+            <span aria-hidden="true">◎</span>
+            <p>Headphones make the timing difference easier to hear.</p>
+          </div>
+        </aside>
+
+        <section class="simulator" aria-label="Beach sound simulator">
+          <div class="simulator-toolbar">
+            <div class="scene-title">
+              <span class="live-dot" aria-hidden="true"></span>
+              <span><strong>Beach 01</strong><small id="source-count">No sources placed</small></span>
+            </div>
+            <div class="toolbar-actions">
+              <button id="remove-button" class="text-button" type="button" disabled>
+                Remove selected
+              </button>
+              <button id="play-button" class="play-button" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7 8 5-8 5V7Z" /></svg>
+                <span>Play scene</span>
+              </button>
+            </div>
+          </div>
+
+          <div
+            id="beach-scene"
+            class="beach-scene"
+            tabindex="0"
+            aria-label="Top-down beach scene. Water is at the top and sand is at the bottom."
+          >
+            <div class="water" aria-hidden="true">
+              <span class="wave wave-one"></span>
+              <span class="wave wave-two"></span>
+              <span class="wave wave-three"></span>
+              <span class="wave wave-four"></span>
+              <span class="wave wave-five"></span>
+              <span class="water-label">Open water</span>
+            </div>
+            <div class="shoreline" aria-hidden="true"></div>
+            <div class="sand" aria-hidden="true">
+              <span class="sand-grain grain-one"></span>
+              <span class="sand-grain grain-two"></span>
+              <span class="sand-grain grain-three"></span>
+              <span class="sand-label">Sand · listener movement area</span>
+            </div>
+
+            <div id="source-layer" class="source-layer" aria-live="polite"></div>
+
+            <div id="listener" class="listener" aria-label="Listener facing the water">
+              <div class="listener-heading" aria-hidden="true">
+                <span class="heading-line"></span>
+                <span class="heading-arrow"></span>
+              </div>
+              <div class="person" aria-hidden="true">
+                <span class="person-shadow"></span>
+                <span class="left-ear"></span>
+                <span class="right-ear"></span>
+                <span class="head"></span>
+                <span class="nose"></span>
+                <span class="shoulders"></span>
+              </div>
+              <span class="listener-label">You</span>
+            </div>
+
+            <div id="drop-hint" class="drop-hint" aria-hidden="true">Drop source here</div>
+          </div>
+
+          <div class="readout" aria-live="polite">
+            <div class="readout-main">
+              <span class="eyebrow">Acoustic readout</span>
+              <p id="acoustic-readout">Place or select a source to inspect its stereo path.</p>
+            </div>
+            <div class="heading-readout">
+              <span>Listener heading</span>
+              <strong id="heading-value">0°</strong>
+            </div>
+          </div>
+
+          <figure id="source-waveform-figure" class="waveform-figure" aria-labelledby="waveform-title">
+            <figcaption class="waveform-figure-header">
+              <span>
+                <span class="eyebrow">Signal figure</span>
+                <strong id="waveform-title">Source-to-ear waveforms</strong>
+              </span>
+              <span id="waveform-caption">Select a source to compare its acoustic paths.</span>
+            </figcaption>
+
+            <div class="waveform-stack">
+              <div class="waveform-row source-waveform-row">
+                <div class="waveform-label">
+                  <strong>Idealized source</strong>
+                  <span id="source-waveform-meta">At emission</span>
+                </div>
+                <svg id="source-waveform" viewBox="0 0 1000 72" preserveAspectRatio="none" role="img" aria-label="Idealized source waveform">
+                  <path class="waveform-grid" d="M0 12H1000M0 36H1000M0 60H1000M0 0V72M250 0V72M500 0V72M750 0V72M1000 0V72" />
+                  <path class="waveform-signal" d="M0 36H1000" />
+                </svg>
+              </div>
+
+              <div class="waveform-row left-waveform-row">
+                <div class="waveform-label">
+                  <strong>Left ear</strong>
+                  <span id="left-waveform-meta">Distance transform</span>
+                </div>
+                <svg id="left-waveform" viewBox="0 0 1000 72" preserveAspectRatio="none" role="img" aria-label="Waveform transformed for the left ear">
+                  <path class="waveform-grid" d="M0 12H1000M0 36H1000M0 60H1000M0 0V72M250 0V72M500 0V72M750 0V72M1000 0V72" />
+                  <path class="waveform-signal" d="M0 36H1000" />
+                </svg>
+              </div>
+
+              <div class="waveform-row right-waveform-row">
+                <div class="waveform-label">
+                  <strong>Right ear</strong>
+                  <span id="right-waveform-meta">Distance transform</span>
+                </div>
+                <svg id="right-waveform" viewBox="0 0 1000 72" preserveAspectRatio="none" role="img" aria-label="Waveform transformed for the right ear">
+                  <path class="waveform-grid" d="M0 12H1000M0 36H1000M0 60H1000M0 0V72M250 0V72M500 0V72M750 0V72M1000 0V72" />
+                  <path class="waveform-signal" d="M0 36H1000" />
+                </svg>
+              </div>
+            </div>
+
+            <div class="waveform-time-axis" aria-hidden="true">
+              <span>0 s</span><span>Shared time and amplitude scales</span><span id="waveform-time-end">2.00 s</span>
+            </div>
+          </figure>
+        </section>
+      </main>
+
+      <main id="waves-page" class="workspace page-view" hidden>
+        <aside class="source-panel wave-panel" aria-label="Wave simulation information">
+          <div class="panel-heading">
+            <span class="eyebrow">Live wave field</span>
+            <h1>Watch the surf</h1>
+            <p>Wave crests emerge offshore, travel through the water, and fade at shore or earlier.</p>
+          </div>
+
+          <div class="wave-model">
+            <div class="wave-model-status">
+              <span class="live-dot" aria-hidden="true"></span>
+              <span><strong>Auto-generating</strong><small id="wave-generation-status">About 6 waves/min · gull every 10 sec</small></span>
+            </div>
+            <label class="wave-rate-control" for="wave-rate-slider">
+              <span class="wave-rate-heading">
+                <span>Wave appearance rate</span>
+                <output id="wave-rate-value" for="wave-rate-slider">6/min</output>
+              </span>
+              <input id="wave-rate-slider" type="range" min="2" max="15" step="1" value="6" />
+              <span class="wave-rate-scale" aria-hidden="true"><span>Slower</span><span>Faster</span></span>
+            </label>
+            <dl>
+              <div>
+                <dt>Depth model</dt>
+                <dd>0.3–2.5 m</dd>
+              </div>
+              <div>
+                <dt>Wave speed</dt>
+                <dd>√<span>gh</span></dd>
+              </div>
+              <div>
+                <dt>Sound</dt>
+                <dd>Full life</dd>
+              </div>
+            </dl>
+          </div>
+
+          <div class="panel-divider"></div>
+
+          <section class="controls-guide" aria-labelledby="wave-controls-title">
+            <span class="eyebrow">Listener controls</span>
+            <h2 id="wave-controls-title">Move on the sand</h2>
+            <div class="key-guide">
+              <div class="key-row">
+                <kbd>W</kbd><kbd>↑</kbd>
+                <span>Move forward</span>
+              </div>
+              <div class="key-row">
+                <kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>
+                <span>Move around</span>
+              </div>
+              <div class="key-row">
+                <kbd>Q</kbd><kbd>E</kbd>
+                <span>Rotate 15°</span>
+              </div>
+            </div>
+          </section>
+
+          <div class="panel-tip">
+            <span aria-hidden="true">≈</span>
+            <p>Each crest is treated as a moving point source at its midpoint.</p>
+          </div>
+        </aside>
+
+        <section class="simulator" aria-label="Moving wave simulator">
+          <div class="simulator-toolbar">
+            <div class="scene-title">
+              <span class="live-dot" aria-hidden="true"></span>
+              <span><strong>Wave field</strong><small id="wave-count">Generating waves…</small></span>
+            </div>
+            <div class="toolbar-actions">
+              <button id="add-wave-button" class="text-button" type="button">Add wave</button>
+              <span class="auto-audio-status"><i aria-hidden="true"></i>Sound always on</span>
+            </div>
+          </div>
+
+          <div
+            id="wave-scene"
+            class="beach-scene wave-beach-scene"
+            tabindex="0"
+            aria-label="Top-down moving wave field. Random wave crests travel toward shore and seagulls fly overhead."
+          >
+            <div class="water" aria-hidden="true">
+              <span class="depth-line depth-line-deep">2.5 m</span>
+              <span class="depth-line depth-line-mid">1.4 m</span>
+              <span class="depth-line depth-line-shallow">0.6 m</span>
+              <span class="water-label">Nearshore wave field</span>
+            </div>
+            <div class="shoreline" aria-hidden="true"></div>
+            <div class="sand" aria-hidden="true">
+              <span class="sand-grain grain-one"></span>
+              <span class="sand-grain grain-two"></span>
+              <span class="sand-grain grain-three"></span>
+              <span class="sand-label">Sand · listener movement area</span>
+            </div>
+
+            <div id="wave-layer" class="wave-layer" aria-live="polite"></div>
+            <div id="flying-gull-layer" class="flying-gull-layer" aria-live="polite"></div>
+
+            <div id="wave-listener" class="listener" aria-label="Listener facing the water">
+              <div class="listener-heading" aria-hidden="true">
+                <span class="heading-line"></span>
+                <span class="heading-arrow"></span>
+              </div>
+              <div class="person" aria-hidden="true">
+                <span class="person-shadow"></span>
+                <span class="left-ear"></span>
+                <span class="right-ear"></span>
+                <span class="head"></span>
+                <span class="nose"></span>
+                <span class="shoulders"></span>
+              </div>
+              <span class="listener-label">You</span>
+            </div>
+          </div>
+
+          <div class="readout" aria-live="polite">
+            <div class="readout-main">
+              <span class="eyebrow">Wave acoustic readout</span>
+              <p id="wave-readout">Select a moving wave to inspect its stereo path.</p>
+            </div>
+            <div class="heading-readout">
+              <span>Listener heading</span>
+              <strong id="wave-heading-value">0°</strong>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div id="drag-ghost" class="drag-ghost" aria-hidden="true"></div>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script src="seagull-recording.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
