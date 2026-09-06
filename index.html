@@ -13,6 +13,7 @@
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='32' fill='%23183430'/%3E%3Cpath d='M12 37c8-9 13-9 21 0s13 9 20 0M12 25c8-9 13-9 21 0s13 9 20 0' fill='none' stroke='%23fff9e9' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E"
     />
     <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="surf.css" />
   </head>
   <body>
     <div class="app-shell">
@@ -36,6 +37,7 @@
           <button class="page-tab" type="button" data-page="waves" aria-selected="false">
             Moving waves
           </button>
+          <button class="page-tab" type="button" data-page="surf" aria-selected="false">3D surf</button>
         </nav>
         <div class="model-facts" aria-label="Acoustic model constants">
           <span><b>343</b> m/s sound speed</span>
@@ -380,10 +382,85 @@
       </main>
     </div>
 
+    <template id="surf-page-template">
+      <main id="surf-page" class="workspace page-view surf-workspace" hidden>
+        <aside class="source-panel surf-panel" aria-label="3D surf controls">
+          <div class="panel-heading">
+            <span class="eyebrow">03 / At the water's edge</span>
+            <h1>Wind into waves</h1>
+            <p>Stand on the sand. Watch a crest fold, hear it break, and follow the water back out.</p>
+          </div>
+          <div class="surf-control-group">
+            <label for="surf-wind">Onshore wind <output id="surf-wind-value">12 m/s</output></label>
+            <input id="surf-wind" type="range" min="0" max="18" step="0.5" value="12" />
+            <div class="surf-scale"><span>Calm</span><span>Strong breeze</span></div>
+            <label for="surf-fetch">Open-water fetch <output id="surf-fetch-value">35 km</output></label>
+            <input id="surf-fetch" type="range" min="1" max="60" step="1" value="35" />
+            <p class="surf-help">Wind builds waves over this distance before they enter the beach view. Changes take time to reach shore.</p>
+            <label for="surf-volume">Listening level <output id="surf-volume-value">55%</output></label>
+            <input id="surf-volume" type="range" min="0" max="100" step="1" value="55" />
+          </div>
+          <dl class="surf-measures">
+            <div><dt>Offshore height</dt><dd id="surf-height">1.31 m</dd></div>
+            <div><dt>Peak period</dt><dd id="surf-period">4.53 s</dd></div>
+          </dl>
+          <div class="surf-guide">
+            <h2>Explore the beach</h2>
+            <p><kbd>W A S D</kbd> or arrows to walk.<br /><kbd>Q</kbd> <kbd>E</kbd> to turn 15°.<br />Drag the view to look around.</p>
+            <button id="surf-reset" class="surf-quiet-button" type="button">Return to water's edge</button>
+          </div>
+          <details class="surf-model-notes">
+            <summary>About the physics</summary>
+            <p>Wind and fetch set incoming wave height and period. Finite-depth dispersion and energy-flux shoaling carry connected crests over an uneven sandbar. A depth or steepness limit starts breaking, which spreads to adjacent sections.</p>
+            <p>Collapsing crests produce spray and a shallow bore. Gravity and bed friction drive run-up and backwash. Wet sand retains the last waterline.</p>
+            <p>Sound is synthesized from turbulence and damped bubble oscillations at breaking sections. Each ear has a separate distance, travel delay, level and frequency filter. Moving air and changing paths affect arrival times.</p>
+            <p>This is a reduced real-time model, not a validated CFD solver. Breaking, lateral coupling, run-up, head shadow and air absorption are approximations. Tides, sediment transport, full 3D turbulence and sound reflections are omitted. Sound levels are relative.</p>
+            <a href="SURF_MODEL.md" target="_blank" rel="noopener">Equations and references</a>
+          </details>
+        </aside>
+        <section class="surf-simulator" aria-label="3D beach simulation">
+          <div class="surf-toolbar">
+            <div><span class="live-dot" aria-hidden="true"></span><strong>Beach perspective</strong></div>
+            <div class="surf-actions">
+              <button id="surf-pause" type="button" aria-pressed="false">Pause</button>
+              <button id="surf-mute" type="button" aria-pressed="false">Mute</button>
+              <button id="surf-fullscreen" type="button">Full screen</button>
+            </div>
+          </div>
+          <div id="surf-viewport" class="surf-viewport" tabindex="0" aria-label="Beach at eye level. Drag to look. Use W A S D to walk, Q and E to turn." aria-describedby="surf-audio-status">
+            <button id="surf-exit-fullscreen" type="button">Exit full screen</button>
+            <div class="surf-horizon-label" aria-hidden="true"><span>ONSHORE</span><span>↓</span></div>
+            <div class="surf-scene-caption" aria-hidden="true"><span>Atlantic light</span><span>Eye height 1.70 m</span></div>
+            <div id="surf-message" class="surf-message" role="status" hidden></div>
+            <div class="surf-touch-controls" aria-label="Beach movement controls">
+              <button type="button" data-surf-move="turnLeft" aria-label="Turn left">↶</button>
+              <button type="button" data-surf-move="forward" aria-label="Walk forward">↑</button>
+              <button type="button" data-surf-move="turnRight" aria-label="Turn right">↷</button>
+              <button type="button" data-surf-move="left" aria-label="Walk left">←</button>
+              <button type="button" data-surf-move="back" aria-label="Walk backward">↓</button>
+              <button type="button" data-surf-move="right" aria-label="Walk right">→</button>
+            </div>
+          </div>
+          <div class="surf-footer">
+            <div class="surf-ear-meters" aria-label="Stereo output level">
+              <span>L <meter id="surf-left-meter" min="0" max="1" value="0" aria-label="Left output level"></meter></span>
+              <span>R <meter id="surf-right-meter" min="0" max="1" value="0" aria-label="Right output level"></meter></span>
+            </div>
+            <span id="surf-audio-status" role="status">Sound starts when you open this page.</span>
+            <span id="surf-observer">Facing the ocean</span>
+          </div>
+          <div class="surf-event-line"><span id="surf-events">Waves arriving from open water</span><span id="surf-distance">Direct sound paths</span></div>
+        </section>
+      </main>
+    </template>
     <div id="drag-ghost" class="drag-ghost" aria-hidden="true"></div>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
     <script src="seagull-recording.js"></script>
+    <script src="vendor/three.bundle.js"></script>
+    <script src="surf-physics.js"></script>
+    <script src="surf-audio.js"></script>
+    <script src="surf-3d.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

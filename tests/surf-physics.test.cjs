@@ -1,0 +1,98 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const P = require('../surf-physics.js');
+global.window = { SurfPhysics: P };
+require('../surf-audio.js');
+
+const close = (a, b, tolerance = 1e-8) => assert.ok(Math.abs(a - b) < tolerance, `${a} != ${b}`);
+
+test('dispersion solves finite-depth gravity waves and both limiting cases', () => {
+  for (const period of [1.6, 4, 9]) for (const depth of [0.07, 0.5, 2, 8, 200]) {
+    const d = P.dispersion(period, depth);
+    close(P.G * d.k * Math.tanh(d.k * depth), (2 * Math.PI / period) ** 2);
+    assert.ok(d.cg > 0 && d.cg <= d.c);
+  }
+  close(P.dispersion(8, 0.07).c / Math.sqrt(P.G * 0.07), 1, 0.002);
+  close(P.dispersion(4, 200).cg / P.dispersion(4, 200).c, 0.5);
+});
+
+test('wind and fetch increase offshore height and period, calm creates no waves', () => {
+  assert.equal(P.windSea(0, 35).height, 0);
+  const low = P.windSea(6, 10), high = P.windSea(12, 35);
+  assert.ok(high.height > low.height && high.period > low.period);
+  assert.ok(P.windSea(12, 60).height > high.height);
+  assert.ok(high.height > 1.2 && high.height < 1.4);
+  assert.ok(high.period > 4.4 && high.period < 4.7);
+});
+
+test('ear paths are symmetric in front and swap after a half turn', () => {
+  const observer = { x: 0, y: 1.7, z: 8, yaw: 0 };
+  const front = P.earPaths({ x: 0, y: 0.4, z: -20 }, observer);
+  close(front[0].delay, front[1].delay);
+  const source = { x: 20, y: 0.4, z: -20 };
+  const ears = P.earPaths(source, observer);
+  assert.ok(ears[1].delay < ears[0].delay);
+  assert.ok(ears[1].gain > ears[0].gain && ears[1].cutoff > ears[0].cutoff);
+  assert.ok(Math.abs(ears[0].delay - ears[1].delay) <= 0.175 / 343);
+  const rotated = P.earPaths(source, { ...observer, yaw: Math.PI });
+  close(ears[0].delay, rotated[1].delay);
+  close(ears[0].cutoff, rotated[1].cutoff);
+  assert.ok(P.earPaths(source, observer, 12)[0].delay < ears[0].delay);
+});
+
+test('connected crests break once per section, then run up and recede', () => {
+  const ocean = new P.Ocean();
+  const ids = new Set();
+  let neighbor = 0, uprush = false, backwash = false;
+  for (let tick = 0; tick < 3600; tick++) {
+    ocean.step(1 / 60);
+    for (const event of ocean.takeEvents()) {
+      assert.ok(!ids.has(event.id), `Repeated impact ${event.id}`);
+      ids.add(event.id);
+      assert.ok(event.energy > 0 && event.height > 0);
+      assert.ok(event.z < 0);
+      if (event.cause === 'neighbor') neighbor++;
+    }
+    for (const f of ocean.fronts) for (const s of f.segments) {
+      assert.ok(Number.isFinite(s.z) && Number.isFinite(s.height) && s.height >= 0);
+      if (s.runup?.z > 0 && s.runup.velocity > 0) uprush = true;
+      if (s.runup?.z > 0 && s.runup.velocity < 0) backwash = true;
+    }
+  }
+  assert.ok(ids.size > 100);
+  assert.ok(neighbor > 0, 'Break collapse must reach neighbors');
+  assert.ok(uprush && backwash);
+  assert.ok(Math.max(...ocean.wetReach) > 0);
+  assert.ok(ocean.fronts.length <= 18);
+});
+
+test('extreme winds stay finite, and calm lets the existing sea drain away', () => {
+  const ocean = new P.Ocean(102);
+  ocean.wind = 18; ocean.fetchKm = 60;
+  for (let i = 0; i < 3600; i++) ocean.step(1 / 30);
+  for (const f of ocean.fronts) for (const s of f.segments) {
+    assert.ok(Number.isFinite(s.height) && Number.isFinite(s.z));
+  }
+  assert.ok(ocean.events.length <= 400 && ocean.fronts.length <= 18);
+  ocean.wind = 0;
+  for (let i = 0; i < 3000; i++) ocean.step(1 / 30);
+  assert.equal(ocean.fronts.length, 0);
+});
+
+test('synthesized impact is deterministic, finite, quiet at both ends, and decays', () => {
+  for (const sampleRate of [24000, 44100, 48000]) {
+    const event = { frontId: 5, index: 19, height: 1.3 };
+    const a = window.SurfCrashSamples(sampleRate, event);
+    const b = window.SurfCrashSamples(sampleRate, event);
+    assert.deepEqual(a, b);
+    assert.equal(a[0], 0); assert.equal(a[a.length - 1], 0);
+    let peak = 0, firstEnergy = 0, tailEnergy = 0;
+    for (let i = 0; i < a.length; i++) {
+      assert.ok(Number.isFinite(a[i])); peak = Math.max(peak, Math.abs(a[i]));
+      if (i < a.length / 3) firstEnergy += a[i] ** 2;
+      if (i > a.length * 2 / 3) tailEnergy += a[i] ** 2;
+    }
+    assert.ok(peak > 0.05 && peak < 1);
+    assert.ok(firstEnergy > tailEnergy * 10);
+  }
+});

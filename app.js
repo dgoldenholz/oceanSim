@@ -74,6 +74,10 @@ let activePage = "sources";
 let waveAudioEnabled = false;
 let waveRatePerMinute = DEFAULT_WAVE_RATE_PER_MINUTE;
 const activeWaveAudioNodes = new Set();
+const activeSceneAudioNodes = new Set();
+let scenePlaybackVersion = 0;
+let scenePlaybackTimer = null;
+let sceneAudioGraph = null;
 let lastAnimationTime = performance.now();
 let nextWaveAt = performance.now() + 60000 / DEFAULT_WAVE_RATE_PER_MINUTE;
 let nextFlyingGullAt = null;
@@ -489,6 +493,7 @@ function moveListener(key) {
 }
 
 function handleKeyboard(event) {
+  if (activePage === "surf") return;
   const tag = event.target.tagName;
   if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
   const key = event.key.toLowerCase();
@@ -759,6 +764,7 @@ function buildSpatialBuffer(context, source, recordedSeagullSamples) {
 }
 
 async function playScene() {
+  const playbackVersion = ++scenePlaybackVersion;
   if (sources.length === 0) {
     showToast("Place a seagull, Gaussian-noise, or wave source first");
     return;
@@ -788,6 +794,8 @@ async function playScene() {
     }
   }
 
+  if (activePage !== "sources" || playbackVersion !== scenePlaybackVersion) return;
+
   const compressor = audioContext.createDynamicsCompressor();
   compressor.threshold.value = -10;
   compressor.knee.value = 18;
@@ -799,6 +807,7 @@ async function playScene() {
   masterGain.gain.value = Math.min(1.8, 1.2 / Math.sqrt(sources.length));
   compressor.connect(masterGain);
   masterGain.connect(audioContext.destination);
+  sceneAudioGraph = [compressor, masterGain];
 
   const startTime = audioContext.currentTime + 0.035;
   let longestDuration = 0;
@@ -843,6 +852,8 @@ async function playScene() {
       node.buffer = buildSpatialBuffer(audioContext, source, recordedSeagullSamples);
     }
     node.connect(compressor);
+    activeSceneAudioNodes.add(node);
+    node.onended = () => { activeSceneAudioNodes.delete(node); node.disconnect(); };
     node.start(startTime);
     longestDuration = Math.max(longestDuration, node.buffer.duration);
   });
@@ -855,7 +866,10 @@ async function playScene() {
     element.classList.add("is-playing");
   });
 
-  window.setTimeout(() => {
+  scenePlaybackTimer = window.setTimeout(() => {
+    compressor.disconnect();
+    masterGain.disconnect();
+    sceneAudioGraph = null;
     playButton.disabled = false;
     playButtonLabel.textContent = "Play scene";
     sourceLayer.querySelectorAll(".placed-source").forEach((element) => {
@@ -865,6 +879,21 @@ async function playScene() {
       }
     });
   }, (longestDuration + 0.08) * 1000);
+}
+
+function stopSceneAudio() {
+  scenePlaybackVersion++;
+  window.clearTimeout(scenePlaybackTimer);
+  for (const node of activeSceneAudioNodes) {
+    try { node.stop(); } catch { /* The source may have just finished. */ }
+    node.disconnect();
+  }
+  activeSceneAudioNodes.clear();
+  sceneAudioGraph?.forEach(node => node.disconnect());
+  sceneAudioGraph = null;
+  playButton.disabled = false;
+  playButtonLabel.textContent = "Play scene";
+  sourceLayer.querySelectorAll(".is-playing").forEach(el => el.classList.remove("is-playing"));
 }
 
 function randomBetween(min, max) {
@@ -1516,7 +1545,9 @@ function disableWaveAudio() {
 }
 
 function setActivePage(page) {
+  if (page !== "sources") stopSceneAudio();
   activePage = page;
+  document.querySelector(".app-shell").dataset.page = page;
   pageViews.forEach((view) => {
     view.hidden = view.id !== `${page}-page`;
   });
@@ -1535,8 +1566,9 @@ function setActivePage(page) {
     nextFlyingGullAt = null;
     clearFlyingGulls();
     disableWaveAudio();
-    scene.focus({ preventScroll: true });
+    if (page === "sources") scene.focus({ preventScroll: true });
   }
+  window.Surf3D?.setActive(page === "surf");
 }
 
 function showToast(message) {

@@ -1,0 +1,14 @@
+{
+  "name": "shoreline-spatial-sound-lab",
+  "version": "2.0.0",
+  "private": true,
+  "scripts": {
+    "build:vendor": "esbuild scripts/three-entry.js --bundle --format=iife --minify --legal-comments=inline --outfile=vendor/three.bundle.js",
+    "test": "node --test tests/surf-physics.test.cjs",
+    "check": "node --check app.js && node --check surf-physics.js && node --check surf-audio.js && node --check surf-3d.js"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.9",
+    "three": "0.180.0"
+  }
+}

@@ -1,12 +1,12 @@
-# Shoreline — Spatial Sound Lab
+# Shoreline spatial sound lab
 
-An interactive, top-down beach simulator for exploring how stationary and moving
-sources affect stereo arrival time and level.
+A beach simulator for exploring how stationary and moving sources affect stereo
+arrival time and level, with two top-down pages and a first-person 3D surf page.
 
 ## Run locally
 
-The app has no build step or package dependencies. Serve the repository with any
-static web server, for example:
+The checked-in app needs no build step or runtime downloads. Open `index.html`
+directly, or serve the repository with a static web server:
 
 ```bash
 python3 -m http.server 8000
@@ -16,7 +16,7 @@ Then open `http://localhost:8000` in a modern browser. Headphones are recommende
 
 ## Controls
 
-- Switch between **Sound sources** and **Moving waves** at the top of the screen.
+- Switch between Sound sources, Moving waves, and 3D surf at the top of the screen.
 - Drag a seagull, Gaussian-noise, or wave source from the left palette into the scene.
 - Click a palette source to add one near the listener.
 - Drag any placed source to reposition it; select it to see the live acoustic readout.
@@ -38,7 +38,25 @@ Then open `http://localhost:8000` in a modern browser. Headphones are recommende
   seagull also appears every ten seconds at a random location and flies on a random
   heading while its recorded call is spatialized along the moving path.
 
-## Acoustic model
+## 3D surf
+
+Page 3 puts the camera at eye level on the beach. Onshore wind and fetch set
+incoming wave height and period. Connected crests shoal over the sandbar, break,
+and wash onto the sand before receding. Breaking sections generate turbulence and
+bubble sound without recordings. Each ear has a separate moving sound path.
+
+Use `W/A/S/D` or arrows to walk, `Q/E` to turn 15°, and drag to look around.
+Touch controls are inside the view. Wind, fetch and listening level have sliders.
+Pause, mute, full screen and a reset-view control are also available. Sound starts
+when the page opens, subject to browser autoplay permission. Tap the view if the
+browser asks for a gesture. Leaving the page stops its audio.
+
+This is a reduced real-time physics model, not a validated fluid solver.
+[The model notes](SURF_MODEL.md) give its equations, approximations and omissions.
+Run `npm test` for numerical tests and `npm run check` for JavaScript syntax checks.
+To rebuild the bundled Three.js renderer, run `npm ci` and `npm run build:vendor`.
+
+## Acoustic model on pages 1 and 2
 
 The scene represents a 36 × 22.5 m area. For every source, the simulator computes
 the geometric distance to each ear using a 17.5 cm adult ear span and a speed of
