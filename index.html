@@ -391,9 +391,10 @@
             <p>Stand on the sand. Watch a crest fold, hear it break, and follow the water back out.</p>
           </div>
           <div class="surf-control-group">
-            <label for="surf-wind">Onshore wind <output id="surf-wind-value">12 m/s</output></label>
+            <label for="surf-wind">Mean onshore wind <output id="surf-wind-value">12 m/s</output></label>
             <input id="surf-wind" type="range" min="0" max="18" step="0.5" value="12" />
-            <div class="surf-scale"><span>Calm</span><span>Strong breeze</span></div>
+            <div class="surf-scale"><span>Calm</span><span>Stronger</span></div>
+            <p id="surf-gust-value" class="surf-gust">Gusting wind · direction varies ±10°</p>
             <label for="surf-fetch">Open-water fetch <output id="surf-fetch-value">35 km</output></label>
             <input id="surf-fetch" type="range" min="1" max="60" step="1" value="35" />
             <p class="surf-help">Wind builds waves over this distance before they enter the beach view. Changes take time to reach shore.</p>
@@ -405,15 +406,17 @@
             <div><dt>Peak period</dt><dd id="surf-period">4.53 s</dd></div>
           </dl>
           <div class="surf-guide">
+            <label class="surf-origin-toggle"><input id="surf-origins" type="checkbox" checked /> Show sound origins</label>
+            <p class="surf-origin-key">Amber rings mark breaking surf. Blue rings mark the moving wash. Headphones help locate each sound.</p>
             <h2>Explore the beach</h2>
             <p><kbd>W A S D</kbd> or arrows to walk.<br /><kbd>Q</kbd> <kbd>E</kbd> to turn 15°.<br />Drag the view to look around.</p>
             <button id="surf-reset" class="surf-quiet-button" type="button">Return to water's edge</button>
           </div>
           <details class="surf-model-notes">
             <summary>About the physics</summary>
-            <p>Wind and fetch set incoming wave height and period. Finite-depth dispersion and energy-flux shoaling carry connected crests over an uneven sandbar. A depth or steepness limit starts breaking, which spreads to adjacent sections.</p>
-            <p>Collapsing crests produce spray and a shallow bore. Gravity and bed friction drive run-up and backwash. Wet sand retains the last waterline.</p>
-            <p>Sound is synthesized from turbulence and damped bubble oscillations at breaking sections. Each ear has a separate distance, travel delay, level and frequency filter. Moving air and changing paths affect arrival times.</p>
+            <p>Wind speed gusts around the selected mean. Its direction wanders within ±10° of shoreward. Wind and fetch set incoming wave height and period. Shoaling and breaking carry connected crests over an uneven sandbar.</p>
+            <p>A shared shallow-water grid carries incoming swash and backwash. Colliding flows change each other's depth and momentum, creating foam. Thin water reveals the sand beneath it; wet patches dry after the water recedes.</p>
+            <p>Breaking roar stays at its crash location. Trailing wash follows the flow's turbulent-energy center. The sound uses filtered noise and low bubble-cloud resonances, never a recording. Each ear has its own moving-air travel delay, level and frequency filter.</p>
             <p>This is a reduced real-time model, not a validated CFD solver. Breaking, lateral coupling, run-up, head shadow and air absorption are approximations. Tides, sediment transport, full 3D turbulence and sound reflections are omitted. Sound levels are relative.</p>
             <a href="SURF_MODEL.md" target="_blank" rel="noopener">Equations and references</a>
           </details>
@@ -422,13 +425,14 @@
           <div class="surf-toolbar">
             <div><span class="live-dot" aria-hidden="true"></span><strong>Beach perspective</strong></div>
             <div class="surf-actions">
-              <button id="surf-pause" type="button" aria-pressed="false">Pause</button>
+              <button id="surf-pause" type="button" aria-pressed="false">Pause simulation</button>
               <button id="surf-mute" type="button" aria-pressed="false">Mute</button>
               <button id="surf-fullscreen" type="button">Full screen</button>
             </div>
           </div>
           <div id="surf-viewport" class="surf-viewport" tabindex="0" aria-label="Beach at eye level. Drag to look. Use W A S D to walk, Q and E to turn." aria-describedby="surf-audio-status">
             <button id="surf-exit-fullscreen" type="button">Exit full screen</button>
+            <button id="surf-pause-overlay" type="button" aria-pressed="false">Pause simulation</button>
             <div class="surf-horizon-label" aria-hidden="true"><span>ONSHORE</span><span>↓</span></div>
             <div class="surf-scene-caption" aria-hidden="true"><span>Atlantic light</span><span>Eye height 1.70 m</span></div>
             <div id="surf-message" class="surf-message" role="status" hidden></div>

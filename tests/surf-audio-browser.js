@@ -5,7 +5,7 @@ window.runSurfAudioChecks = async function () {
   const observer = { x: 0, y: 1.7, z: 4, yaw: 0 };
   async function render(x, z, yaw = 0, copies = 1, limiter = false) {
     const audio = new SurfAudio();
-    audio.context = new OfflineAudioContext(2, sampleRate * 5, sampleRate);
+    audio.context = new OfflineAudioContext(2, sampleRate * 10, sampleRate);
     if (limiter) {
       audio.volume = 1;
       audio.setupOutput();
@@ -45,8 +45,8 @@ window.runSurfAudioChecks = async function () {
   const far = await render(0, -40);
   assert(far.stats[0].rms < front.stats[0].rms * 0.5, 'Distance must reduce sound pressure');
   assert(far.stats[0].first > front.stats[0].first, 'Farther sound must arrive later');
-  const crowded = await render(0, 2, 0, 36, true);
-  assert(crowded.stats.every(s => s.peak < 1), 'Worst-case 36-source mix clips');
+  const crowded = await render(0, 2, 0, 48, true);
+  assert(crowded.stats.every(s => s.peak < 1), 'Worst-case 48-source mix clips');
   return { passed: true, front: front.stats, right: right.stats, physicalDelays: right.paths,
     far: far.stats, worstCase: crowded.stats };
 };

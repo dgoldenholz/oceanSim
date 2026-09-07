@@ -45,9 +45,17 @@ incoming wave height and period. Connected crests shoal over the sandbar, break,
 and wash onto the sand before receding. Breaking sections generate turbulence and
 bubble sound without recordings. Each ear has a separate moving sound path.
 
+The wind slider sets a mean speed. Gusts change speed and choose directions within
+±10° of shoreward. Nearshore water uses a shared shallow-water grid, so incoming
+swash and backwash collide and alter one another. Thin water, moving foam, and
+wet-sand shading follow this grid. Optional amber rings mark breaking sound origins;
+blue rings mark wash sound, which follows the water's turbulent-energy center.
+
 Use `W/A/S/D` or arrows to walk, `Q/E` to turn 15°, and drag to look around.
 Touch controls are inside the view. Wind, fetch and listening level have sliders.
-Pause, mute, full screen and a reset-view control are also available. Sound starts
+Pause simulation freezes wind, water, and audio playback. Resume simulation continues
+the same audio sources. The control is also inside the full-screen view. Mute and
+a reset-view control are available. Sound starts
 when the page opens, subject to browser autoplay permission. Tap the view if the
 browser asks for a gesture. Leaving the page stops its audio.
 

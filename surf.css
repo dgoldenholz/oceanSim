@@ -34,6 +34,13 @@
 .surf-viewport:active { cursor: grabbing; }
 .surf-viewport canvas { width: 100%; height: 100%; display: block; }
 .surf-viewport:fullscreen { height: 100vh; width: 100vw; }
+.surf-gust { margin: 9px 0 0; color: #167f7a; font-size: 11px; font-variant-numeric: tabular-nums; }
+.surf-origin-toggle { display: flex; align-items: center; gap: 7px; font-size: 12px; margin-bottom: 8px; }
+.surf-origin-toggle input { accent-color: #157c78; }
+.surf-origin-key { font-size: 10px !important; line-height: 1.5 !important; margin-bottom: 19px; }
+#surf-pause { background: #183430; color: white; min-width: 120px; }
+#surf-pause-overlay { display: none; position: absolute; top: 16px; left: 16px; z-index: 5; border: 1px solid #ffffff85; border-radius: 7px; padding: 10px 14px; color: white; background: #173c46d9; cursor: pointer; }
+.surf-viewport:fullscreen #surf-pause-overlay, .surf-viewport.is-paused #surf-pause-overlay { display: block; }
 #surf-exit-fullscreen { display: none; }
 .surf-viewport:fullscreen #surf-exit-fullscreen { display: block; position: absolute; top: 16px; right: 16px; z-index: 5; border: 1px solid #ffffff85; border-radius: 7px; padding: 10px 14px; color: white; background: #173c46b8; cursor: pointer; }
 .surf-horizon-label { position: absolute; z-index: 2; top: 22px; left: 50%; transform: translateX(-50%); color: #fff; text-shadow: 0 1px 5px #2e647b; display: grid; text-align: center; gap: 7px; pointer-events: none; font-size: 9px; letter-spacing: 0.22em; }

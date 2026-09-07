@@ -55,15 +55,58 @@ test('connected crests break once per section, then run up and recede', () => {
     }
     for (const f of ocean.fronts) for (const s of f.segments) {
       assert.ok(Number.isFinite(s.z) && Number.isFinite(s.height) && s.height >= 0);
-      if (s.runup?.z > 0 && s.runup.velocity > 0) uprush = true;
-      if (s.runup?.z > 0 && s.runup.velocity < 0) backwash = true;
     }
+    const water = ocean.swash.stats();
+    uprush ||= water.uprush > 0;
+    backwash ||= water.backwash > 0;
   }
   assert.ok(ids.size > 100);
   assert.ok(neighbor > 0, 'Break collapse must reach neighbors');
   assert.ok(uprush && backwash);
   assert.ok(Math.max(...ocean.wetReach) > 0);
   assert.ok(ocean.fronts.length <= 18);
+  assert.ok(ocean.swash.collisionCount > 0);
+});
+
+test('gusts are repeatable, variable, smooth, and bounded to ±10 degrees', () => {
+  const a = new P.GustWind(174), b = new P.GustWind(174);
+  let min = 100, max = 0, left = false, right = false, previous = 0;
+  for (let i = 0; i < 18000; i++) {
+    a.step(1 / 60, 12); b.step(1 / 60, 12);
+    close(a.speed, b.speed); close(a.angle, b.angle);
+    assert.ok(Math.abs(a.angle) <= Math.PI / 18);
+    assert.ok(Math.abs(a.angle - previous) < 0.005);
+    min = Math.min(min, a.speed); max = Math.max(max, a.speed);
+    left ||= a.angle < -0.04; right ||= a.angle > 0.04;
+    previous = a.angle;
+  }
+  assert.ok(max - min > 4 && left && right);
+  a.step(1 / 60, 0); assert.equal(a.speed, 0);
+});
+
+test('hydrostatic reconstruction preserves still water over the uneven beach', () => {
+  const f = new P.SwashField({ closed: true });
+  const mass = f.stats().mass;
+  for (let i = 0; i < 180; i++) f.step(1 / 60);
+  close(f.stats().mass, mass, 1e-7);
+  assert.ok(f.qx.every(q => Math.abs(q) < 1e-9));
+  assert.ok(f.qz.every(q => Math.abs(q) < 1e-9));
+});
+
+test('opposing swash flows build a bore and alter both momenta without losing water', () => {
+  const f = new P.SwashField({ nx: 3, nz: 81, zMin: -10, bed: () => -0.2, closed: true, friction: 0 });
+  for (let x = 0; x < f.nx; x++) for (let z = 0; z < f.nz; z++) {
+    f.qz[x * f.nz + z] = z < 40 ? 0.2 : z > 40 ? -0.2 : 0;
+  }
+  const mass = f.stats().mass;
+  for (let i = 0; i < 60; i++) f.step(1 / 60);
+  close(f.stats().mass, mass, 1e-7);
+  const center = f.nz + 40;
+  assert.ok(f.h[center] > 0.30, 'Collision must raise the water surface');
+  assert.ok(f.qz[center - 1] < 0.2 && f.qz[center + 1] > -0.2, 'Both flows must react');
+  close(f.h[center - 1], f.h[center + 1], 1e-9);
+  assert.ok(f.collisionCount > 0);
+  assert.ok(f.h.every(h => Number.isFinite(h) && h >= 0));
 });
 
 test('extreme winds stay finite, and calm lets the existing sea drain away', () => {
@@ -74,6 +117,8 @@ test('extreme winds stay finite, and calm lets the existing sea drain away', () 
     assert.ok(Number.isFinite(s.height) && Number.isFinite(s.z));
   }
   assert.ok(ocean.events.length <= 400 && ocean.fronts.length <= 18);
+  assert.ok(ocean.swash.h.every(h => Number.isFinite(h) && h >= 0));
+  assert.ok(ocean.swash.qx.every(Number.isFinite) && ocean.swash.qz.every(Number.isFinite));
   ocean.wind = 0;
   for (let i = 0; i < 3000; i++) ocean.step(1 / 30);
   assert.equal(ocean.fronts.length, 0);

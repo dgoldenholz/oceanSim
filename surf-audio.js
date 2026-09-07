@@ -2,34 +2,47 @@
   'use strict';
   const P = window.SurfPhysics;
 
-  // Turbulent pressure plus damped bubble oscillations, generated once per impact.
+  // Broadband turbulent pressure and low bubble-cloud modes, with a trailing wash.
   function crashSamples(sampleRate, event) {
-    const duration = P.clamp(1.4 + Math.sqrt(event.height) * 1.1, 1.4, 3.8);
+    const wash = event.kind === 'wash';
+    const duration = wash ? 8 : P.clamp(3.6 + Math.sqrt(event.height) * 1.8, 4, 7);
     const samples = new Float32Array(Math.ceil(duration * sampleRate));
-    const rng = P.random(event.frontId * 7919 + event.index * 104729);
-    const bubbles = Array.from({ length: 22 }, () => {
-      const radius = 0.002 + rng() * 0.020;
-      return { time: 0.04 + rng() * duration * 0.75,
-        frequency: 3.26 / radius, decay: 0.012 + rng() * 0.06, phase: rng() * 6.28 };
+    const rng = P.random(event.frontId * 7919 + event.index * 104729 + (wash ? 173 : 0));
+    const clouds = Array.from({ length: 3 }, (_, index) => {
+      const frequency = (65 + rng() * 85 + index * 85) / Math.sqrt(0.6 + event.height);
+      const r = Math.exp(-Math.PI * (45 + rng() * 80) / sampleRate);
+      return { a: 2 * r * Math.cos(2 * Math.PI * frequency / sampleRate), b: r * r,
+        drive: 2 * (1 - r) * Math.sin(2 * Math.PI * frequency / sampleRate), y1: 0, y2: 0 };
     });
-    let low = 0, mid = 0;
-    const a = 1 - Math.exp(-2 * Math.PI * 180 / sampleRate);
-    const b = 1 - Math.exp(-2 * Math.PI * 1800 / sampleRate);
+    let low = 0, mid = 0, air = 0, pink0 = 0, pink1 = 0, pink2 = 0;
+    let flutter = 0, nextFlutter = 0;
+    const a = 1 - Math.exp(-2 * Math.PI * 95 / sampleRate);
+    const b = 1 - Math.exp(-2 * Math.PI * 1100 / sampleRate);
+    const c = 1 - Math.exp(-2 * Math.PI * 6200 / sampleRate);
+    const pinkRates = [18, 160, 1600].map(f => Math.exp(-2 * Math.PI * f / sampleRate));
     for (let i = 0; i < samples.length; i++) {
       const t = i / sampleRate, u = t / duration;
       const noise = rng() * 2 - 1;
       low += a * (noise - low);
       mid += b * (noise - mid);
-      const envelope = (1 - Math.exp(-t / 0.035)) * Math.exp(-t / (duration * 0.32)) * (1 - u) ** 2;
-      let sound = (1.65 * low + 0.72 * mid + 0.26 * noise) * envelope;
-      for (const bubble of bubbles) {
-        const age = t - bubble.time;
-        if (age > 0 && age < bubble.decay * 8) {
-          sound += 0.028 * Math.sin(2 * Math.PI * bubble.frequency * age + bubble.phase) *
-            Math.exp(-age / bubble.decay) * (1 - u) ** 2;
-        }
+      air += c * (noise - air);
+      pink0 = pinkRates[0] * pink0 + (1 - pinkRates[0]) * noise;
+      pink1 = pinkRates[1] * pink1 + (1 - pinkRates[1]) * noise;
+      pink2 = pinkRates[2] * pink2 + (1 - pinkRates[2]) * noise;
+      if (i % Math.floor(sampleRate * 0.06) === 0) nextFlutter = rng() * 2 - 1;
+      flutter += (nextFlutter - flutter) * 25 / sampleRate;
+      const attack = 1 - Math.exp(-t / (wash ? 0.35 : 0.11));
+      const envelope = attack * Math.exp(-t / (duration * 0.65)) * (1 - u) ** 1.3;
+      let cloud = 0;
+      for (const mode of clouds) {
+        const y = mode.a * mode.y1 - mode.b * mode.y2 + mode.drive * noise;
+        mode.y2 = mode.y1; mode.y1 = y; cloud += y;
       }
-      samples[i] = sound;
+      const roar = 1.7 * low + 2.6 * pink0 + 1.1 * pink1 + 0.40 * cloud;
+      const fizz = (air - mid) * (wash ? 0.60 : 0.36) + 0.35 * pink2;
+      const sound = ((wash ? 0.32 : 0.78) * roar + 0.55 * mid + fizz) *
+        envelope * (0.84 + 0.16 * flutter);
+      samples[i] = Math.tanh(sound * 1.7) * 0.8;
     }
     samples[0] = 0;
     samples[samples.length - 1] = 0;
@@ -50,6 +63,7 @@
     }
 
     async activate() {
+      clearTimeout(this.pauseTimer);
       if (!this.context) {
         const Context = window.AudioContext || window.webkitAudioContext;
         if (!Context) throw new Error('Web Audio is unavailable in this browser.');
@@ -94,6 +108,7 @@
     }
 
     silence() {
+      clearTimeout(this.pauseTimer);
       this.enabled = false;
       for (const voice of this.voices) {
         voice.node.onended = null;
@@ -107,6 +122,17 @@
       if (this.context) this.context.suspend();
     }
 
+    pause() {
+      this.enabled = false;
+      this.peak = 0; this.earPeaks = [0, 0]; this.lastPaths = null;
+      if (!this.context) return;
+      const now = this.context.currentTime;
+      this.master.gain.cancelScheduledValues(now);
+      this.master.gain.setTargetAtTime(0, now, 0.007);
+      // Preserve each source cursor and delay line, then resume the same sound.
+      this.pauseTimer = setTimeout(() => { if (!this.enabled) this.context.suspend(); }, 35);
+    }
+
     disposeVoice(voice) {
       voice.node.disconnect(); voice.merger.disconnect();
       for (const e of voice.ears) { e.delay.disconnect(); e.filter.disconnect(); e.gain.disconnect(); }
@@ -114,7 +140,8 @@
 
     emit(event, observer, wind) {
       // One representative point per 12 m of connected crest, with that strip's energy.
-      if (!this.enabled || this.context?.state !== 'running' || event.index % 3 !== 1 || this.voices.size >= 36) return;
+      if (!this.enabled || this.context?.state !== 'running' || event.index % 3 !== 1 || this.voices.size >= 48) return;
+      if (event.kind === 'wash' && [...this.voices].some(v => !v.ended && v.event.kind === 'wash' && v.event.index === event.index)) return;
       this.createVoice(event, observer, wind);
     }
 
@@ -129,7 +156,8 @@
       merger.connect(this.master);
       const voice = { node, merger, ears: [], event,
         position: { x: event.x, y: event.y, z: event.z },
-        strength: P.clamp(Math.sqrt(event.energy * 3 / 12000), 0.06, 2.5) };
+        strength: P.clamp(Math.sqrt(event.energy * 3 / 12000), 0.06, 2.5),
+        startedAt: c.currentTime, duration: buffer.duration, activity: 1 };
       for (let side = 0; side < 2; side++) {
         const delay = c.createDelay(2);
         const filter = c.createBiquadFilter();
@@ -151,15 +179,11 @@
     }
 
     updateVoice(voice, observer, wind, initial = false) {
-      if (!voice.ended) {
-        voice.position.z = voice.event.segment.z;
-        voice.position.y = Math.max(0.1, voice.event.segment.height * 0.25);
-      }
       const paths = P.earPaths(voice.position, observer, wind);
-      this.lastPaths = paths;
+      voice.paths = paths;
       paths.forEach((path, i) => {
         const ear = voice.ears[i], now = this.context.currentTime;
-        const values = [[ear.delay.delayTime, path.delay], [ear.gain.gain, path.gain * voice.strength],
+        const values = [[ear.delay.delayTime, path.delay], [ear.gain.gain, path.gain * voice.strength * voice.activity],
           [ear.filter.frequency, path.cutoff]];
         for (const [param, value] of values) {
           if (initial) param.setValueAtTime(value, now);
@@ -168,19 +192,47 @@
       });
     }
 
-    update(observer, wind) {
+    update(observer, wind, swash) {
       if (!this.enabled || !this.context) return;
       for (const voice of this.voices) {
         if (voice.cleanupAt <= this.context.currentTime) {
           this.disposeVoice(voice);
           this.voices.delete(voice);
-        } else this.updateVoice(voice, observer, wind);
+        } else {
+          if (swash && voice.event.kind === 'wash') {
+            let weight = 0, zSum = 0, ySum = 0;
+            for (let z = 10; z < swash.nz; z++) {
+              const k = voice.event.index * swash.nz + z;
+              const h = swash.h[k], speed = Math.abs(swash.qz[k]) / Math.max(0.01, h);
+              const power = h * speed ** 3 * (0.2 + swash.foam[k]);
+              weight += power; zSum += power * (swash.zMin + z * swash.dz);
+              ySum += power * (swash.bed[k] + h + 0.04);
+            }
+            voice.activity = P.clamp(Math.sqrt(weight) * 0.55, 0, 1.6);
+            if (weight > 0.001) {
+              voice.position.z = P.mix(voice.position.z, zSum / weight, 0.08);
+              voice.position.y = P.mix(voice.position.y, ySum / weight, 0.08);
+            }
+          }
+          this.updateVoice(voice, observer, wind);
+        }
       }
       this.earPeaks = this.analysers.map(analyser => {
         analyser.getFloatTimeDomainData(this.meter);
         return this.meter.reduce((m, v) => Math.max(m, Math.abs(v)), 0);
       });
       this.peak = Math.max(...this.earPeaks);
+      this.lastPaths = this.audibleSources()[0]?.paths || null;
+    }
+
+    audibleSources() {
+      if (!this.context || !this.enabled || this.muted) return [];
+      return [...this.voices].map(v => {
+        const age = this.context.currentTime - v.startedAt;
+        const envelope = (1 - Math.exp(-age / 0.15)) * Math.exp(-age / (v.duration * 0.65)) * Math.max(0, 1 - age / v.duration) ** 1.3;
+        return { ...v.position, kind: v.event.kind || 'break', paths: v.paths,
+          score: v.strength * v.activity * (v.paths?.[0].gain || 0) * envelope };
+      }).filter(v => v.score > 0.001).sort((a, b) => b.score - a.score).slice(0, 3);
     }
 
     diagnostics() {
